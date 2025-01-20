@@ -1,291 +1,134 @@
-from controller import Robot, Compass, GPS, LED, DistanceSensor
-import math
-import time
-from math import atan2, degrees
-import random
+# main_controller.py
+from controller import Robot
+from petting_mode import PettingMode
+from feeding_mode import FeedingMode
+from obstacle_mode import ObstacleMode
+from follow_mode import FollowMode
+import tkinter as tk
+from tkinter import ttk
+import sys
 
-# Constants
-TIME_STEP = 64  # Webots simulation time step (ms)
-SPIN_SPEED = 2.0  # Speed for spinning
-destination = (0, 0)
-MOOD_THRESHOLD_HIGH = 55  # Threshold for high mood (easier to reach)
-MOOD_THRESHOLD_LOW = 25   # Threshold for low mood
-MOOD_INCREASE = 5         # How much mood increases per interaction
-MOOD_DECREASE = 0.5      # How much mood decreases per no interaction (slower decay)
-
-# Initialize robot and devices
-robot = Robot()
-compass = robot.getDevice("compass")
-left_motor = robot.getDevice("left wheel motor")
-right_motor = robot.getDevice("right wheel motor")
-
-# Enable sensors
-compass.enable(TIME_STEP)
-
-# Get the GPS device
-gps = robot.getDevice('gps')
-gps.enable(TIME_STEP)
-
-# Set motors to velocity mode
-left_motor.setPosition(float('inf'))
-right_motor.setPosition(float('inf'))
+class RobotGUI:
+    def __init__(self, controller):
+        self.controller = controller
+        self.root = tk.Tk()
+        self.root.title("Robot Controller")
+        self.root.geometry("300x400")
         
-# Initialize LEDs
-leds = []
-for i in range(8):
-    led = robot.getDevice(f'led{i}')
-    if led:
-        leds.append(led)
+        # Create main frame
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-# Initialize proximity sensors
-ps = []
-for i in range(8):
-    sensor = robot.getDevice(f'ps{i}')
-    if sensor:
-        sensor.enable(TIME_STEP)
-        ps.append(sensor)
+        # Title
+        title_label = ttk.Label(main_frame, text="Robot Mode Controller", font=('Helvetica', 14, 'bold'))
+        title_label.grid(row=0, column=0, pady=10)
         
-# LED timer dictionary
-led_timers = {i: 0 for i in range(len(leds))}
-LED_DURATION = 3000  # 3 seconds in milliseconds
-
-# Direction mapping for better debug messages
-direction_names = {
-    0: "FRONT",
-    1: "FRONT-RIGHT",
-    2: "RIGHT",
-    3: "BACK-RIGHT",
-    4: "BACK",
-    5: "BACK-LEFT",
-    6: "LEFT",
-    7: "FRONT-LEFT"
-}
-
-# Mood system
-mood = 50  # Start with neutral mood
-last_interaction_time = 0
+        # Current mode display
+        self.mode_var = tk.StringVar(value="Current Mode: None")
+        mode_label = ttk.Label(main_frame, textvariable=self.mode_var, font=('Helvetica', 12))
+        mode_label.grid(row=1, column=0, pady=10)
         
-def check_collisions():
-    """Check for nearby objects using distance sensors"""
-    close_threshold = 1000  # Threshold for very close objects
-    near_threshold = 100   # Threshold for nearby objects - will trigger interaction
-    collisions = []
-    has_interaction = False
+        # Mode buttons
+        ttk.Label(main_frame, text="Select Mode:", font=('Helvetica', 12)).grid(row=2, column=0, pady=5)
         
-    for i, sensor in enumerate(ps):
-        value = sensor.getValue()
-        if value > close_threshold:
-            print(f"Very close object detected at {direction_names[i]}")
-            collisions.append(i)
-            blink_led(i)
-            has_interaction = True
-        elif value > near_threshold:
-            print(f"Nearby object detected at {direction_names[i]}")
-            has_interaction = True
+        # Create a frame for buttons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=3, column=0, pady=10)
         
-    return collisions, has_interaction
-
-def update_mood(has_interaction):
-    """Update mood based on interactions"""
-    global mood
-    
-    if has_interaction:
-        mood = min(100, mood + MOOD_INCREASE)
-        # Blink happy LEDs (front LEDs) when mood is high
+        # Mode buttons with descriptions
+        modes = [
+            ("Petting Mode", 'P', "Interact with the robot through petting"),
+            ("Feeding Mode", 'F', "Feed and maintain robot's hunger"),
+            ("Obstacle Mode", 'O', "Navigate and avoid obstacles"),
+            ("Follow Mode", 'L', "Follow detected objects")
+        ]
         
-    else:
-        mood = max(0, mood - MOOD_DECREASE)
-        # Blink sad LEDs (back LEDs) when mood is low
-        
-    
-    print(f"Current mood: {mood}")
-    return mood
-    
-def mood_check():
-    if mood > MOOD_THRESHOLD_HIGH:
-        for led in leds:
-            if led.get() == 1:
-                blinks_led(led, True)
-            else:
-                blinks_led(led, False)
-    else:
-        for led in leds:
-            blinks_led(led, True)
-
-def blinks_led(led, isON): #added duration
-    """Blink a specific LED for a given duration."""
-    if led is not None:  # Check if the LED device was found 
-        if isON:
-            led.set(0)
-        else:
-            led.set(1)
-
-def blink_led(led_index):
-    """Blink a specific LED"""
-    if 0 <= led_index and led_index < len(leds):
-        current_time = robot.getTime() * 1000
-        leds[led_index].set(1)
-        led_timers[led_index] = current_time
-        print(f"LED {led_index} turned ON ({direction_names[led_index]} position)")
-
-def update_leds():
-    """Turn off LEDs after duration"""
-    current_time = robot.getTime() * 1000
-    for led_index, start_time in led_timers.items():
-        if start_time > 0 and current_time - start_time > LED_DURATION:
-            leds[led_index].set(0)
-            led_timers[led_index] = 0
-            print(f"LED {led_index} turned OFF ({direction_names[led_index]} position)")
-
-def get_heading_angle():
-    north = compass.getValues()  
-    angle = degrees(atan2(north[1], north[0]))  
-    return (angle % 360) + 1  
-
-def compass_bearing(current_coordinate, destination_coordinate):
-    theta_radians = math.atan2(destination_coordinate[1] - current_coordinate[1], 
-                              destination_coordinate[0] - current_coordinate[0])
-    theta_degrees = math.degrees(theta_radians)
-    compass_bearing = (90 - theta_degrees + 360) % 360
-    return compass_bearing
-
-def is_at_destination(current_coordinate):
-    """Check if robot is at the destination"""
-    return (current_coordinate[0] > -0.04 and current_coordinate[0] < 0.04 and 
-            current_coordinate[1] > -0.04 and current_coordinate[1] < 0.04)
-
-def calculate_distance(current_coordinate, destination):
-    """Calculate distance to destination"""
-    return math.sqrt((destination[0] - current_coordinate[0])**2 + 
-                    (destination[1] - current_coordinate[1])**2)
-
-def get_speed_for_distance(distance):
-    """Calculate appropriate speed based on distance to destination"""
-    if distance < 0.1:  # Very close
-        return 1.0
-    elif distance < 0.2:  # Close
-        return 2.0
-    elif distance < 0.3:  # Medium distance
-        return 3.0
-    else:  # Far
-        return 4.0
-    
-def dance(current_time):
-    """Execute dance sequence"""
-    SPIN_SPEED = 3  # Speed for spinning
-    dance_duration = 10  # Total duration of dance in seconds
-    current_duration = robot.getTime() - current_time
-    
-    if current_duration >= dance_duration:
-        left_motor.setVelocity(0)
-        right_motor.setVelocity(0)
-        return False
-        
-    # Dance sequence timing
-    if current_duration < 2:
-        left_motor.setVelocity(SPIN_SPEED)
-        right_motor.setVelocity(-SPIN_SPEED)
-    elif current_duration < 4:
-        left_motor.setVelocity(-SPIN_SPEED)
-        right_motor.setVelocity(SPIN_SPEED)
-    elif current_duration < 4.3:
-        left_motor.setVelocity(2.0)
-        right_motor.setVelocity(2.0)
-    elif robot.getTime() - current_time < 4.6:
-        left_motor.setVelocity(-2.0)
-        right_motor.setVelocity(-2.0)
-    elif robot.getTime() - current_time < 6:
-        left_motor.setVelocity(-SPIN_SPEED)
-        right_motor.setVelocity(SPIN_SPEED)
-    elif robot.getTime() - current_time < 6.3:
-        left_motor.setVelocity(-2.0)
-        right_motor.setVelocity(-2.0)
-    elif robot.getTime() - current_time < 6.6:
-        left_motor.setVelocity(2.0)
-        right_motor.setVelocity(2.0)
-    elif robot.getTime() - current_time < 8:
-        left_motor.setVelocity(SPIN_SPEED)
-        right_motor.setVelocity(-SPIN_SPEED)
-    elif robot.getTime() - current_time < 10:
-        left_motor.setVelocity(SPIN_SPEED)
-        right_motor.setVelocity(-SPIN_SPEED)
- 
-    
-    return True
-
-# Main control variables
-dance_flag = False
-dance_state_persistent = False  # Maintains dance state even when interrupted
-current_time = 0
-dance_interrupted_time = 0  # Stores the time when dance was interrupted
-
-# Main loop
-while robot.step(TIME_STEP) != -1:
-    collisions, has_interaction = check_collisions()
-    update_leds()
-    mood_check()
-    
-    # Update mood based on interactions
-    current_mood = update_mood(has_interaction)
-    
-    gps_values = gps.getValues()
-    current_coordinate = (gps_values[0], gps_values[1])
-    bearing = compass_bearing(current_coordinate, destination)
-    current_heading = get_heading_angle()
-    
-    # First priority: Get to destination if not there
-    if not is_at_destination(current_coordinate):
-        if dance_flag:
-            # Store the fact that we were dancing and when we interrupted it
-            if not dance_state_persistent:
-                dance_state_persistent = True
-                dance_interrupted_time = robot.getTime() - current_time
-                print("Dance interrupted, will resume later")
-            dance_flag = False  # Temporarily stop dancing to return to center
-        
-        print("Moving to destination")
-        # Calculate heading difference
-        heading_diff = abs(current_heading - bearing)
-        if heading_diff > 180:
-            heading_diff = 360 - heading_diff
+        for i, (mode_name, mode_key, description) in enumerate(modes):
+            mode_frame = ttk.Frame(button_frame)
+            mode_frame.grid(row=i, column=0, pady=5, sticky=tk.W)
             
-        # Adjust rotation speed based on how far we need to turn
-        if heading_diff < 3:
-            # We're facing the right direction, move forward
-            distance = calculate_distance(current_coordinate, destination)
-            speed = get_speed_for_distance(distance)
-            left_motor.setVelocity(speed)
-            right_motor.setVelocity(speed)
-        elif heading_diff < 10:
-            # Small adjustment needed
-            turn_speed = SPIN_SPEED * 0.5
-            left_motor.setVelocity(turn_speed)
-            right_motor.setVelocity(-turn_speed)
-        else:
-            left_motor.setVelocity(SPIN_SPEED)
-            right_motor.setVelocity(-SPIN_SPEED)
+            btn = ttk.Button(mode_frame, 
+                           text=mode_name,
+                           command=lambda k=mode_key: self.switch_mode(k))
+            btn.grid(row=0, column=0, padx=5)
+            
+            desc_label = ttk.Label(mode_frame, text=description, font=('Helvetica', 10))
+            desc_label.grid(row=0, column=1, padx=5)
+        
+        # Status display
+        self.status_var = tk.StringVar(value="Status: Ready")
+        status_label = ttk.Label(main_frame, textvariable=self.status_var, font=('Helvetica', 10))
+        status_label.grid(row=4, column=0, pady=10)
+        
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+    def switch_mode(self, mode_key):
+        """Switch robot mode and update GUI"""
+        try:
+            self.controller.switch_mode(mode_key)
+            self.mode_var.set(f"Current Mode: {self.controller.current_mode.__class__.__name__}")
+            self.status_var.set(f"Status: Switched to {mode_key} mode")
+        except Exception as e:
+            self.status_var.set(f"Error: {str(e)}")
     
-    # At destination: handle dancing based on mood
-    else:
-        odds = int(130 - current_mood) 
-        if not dance_flag:
-            if dance_state_persistent:
-                # Resume interrupted dance
-                print("Resuming interrupted dance!")
-                current_time = robot.getTime() - dance_interrupted_time
-                dance_flag = True
-                dance_state_persistent = False
-            # Randomly start dancing if mood is high enough and not resuming a dance
-            elif current_mood > MOOD_THRESHOLD_HIGH and random.randint(1, odds) == 1:
-                print("Happy! Starting to dance!")
-                current_time = robot.getTime()
-                dance_flag = True
-            else:
-                left_motor.setVelocity(0)
-                right_motor.setVelocity(0)
-        else:
-            # Continue dancing until sequence completes
-            still_dancing = dance(current_time)
-            if not still_dancing:
-                dance_flag = False
-                dance_state_persistent = False  # Reset persistent state when dance completes
+    def update(self):
+        """Update GUI and process robot controller"""
+        self.root.update()
+        
+    def on_closing(self):
+        """Handle window closing"""
+        if self.controller.current_mode:
+            self.controller.current_mode.exit()
+        self.root.destroy()
+        sys.exit()
+
+class MainController:
+    def __init__(self):
+        self.robot = Robot()
+        self.TIME_STEP = 64
+        
+        # Initialize all modes
+        self.modes = {
+            'P': PettingMode(self.robot),
+            'F': FeedingMode(self.robot),
+            'O': ObstacleMode(self.robot),
+            'L': FollowMode(self.robot)
+        }
+        self.current_mode = None
+        
+        # Initialize motors for idle state
+        self.left_motor = self.robot.getDevice("left wheel motor")
+        self.right_motor = self.robot.getDevice("right wheel motor")
+        self.left_motor.setPosition(float('inf'))
+        self.right_motor.setPosition(float('inf'))
+        
+        # Create GUI
+        self.gui = RobotGUI(self)
+            
+    def switch_mode(self, mode_key):
+        """Switch to specified mode"""
+        if mode_key in self.modes:
+            if self.current_mode:
+                print(f"Exiting {self.current_mode.__class__.__name__}")
+                self.current_mode.exit()
+            self.current_mode = self.modes[mode_key]
+            print(f"Entering {self.current_mode.__class__.__name__}")
+            self.current_mode.enter()
+                
+    def run(self):
+        """Main control loop"""
+        while self.robot.step(self.TIME_STEP) != -1:
+            try:
+                self.gui.update()
+                if self.current_mode:
+                    self.current_mode.update()
+                else:
+                    # Idle behavior
+                    self.left_motor.setVelocity(0)
+                    self.right_motor.setVelocity(0)
+            except tk.TclError:  # GUI was closed
+                break
+
+if __name__ == "__main__":
+    controller = MainController()
+    controller.run()

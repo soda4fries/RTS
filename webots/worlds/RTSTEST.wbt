@@ -5,12 +5,13 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/gctronic/e-puck/protos/E-puck.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/kitchen/breakfast/protos/BiscuitBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/balls/protos/PingPongBall.proto"
 
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.3550209315138744 0.4684433068420076 0.8090247254948058 1.5055381409473554
-  position -0.10925998974019618 -0.5169360880718571 0.7449638213095242
+  orientation -0.269203915436032 -0.08260343088215416 0.9595342230063537 3.714274875970949
+  position 0.841660855167247 0.7484442185560947 0.7582968954886753
 }
 TexturedBackground {
 }
@@ -19,6 +20,18 @@ TexturedBackgroundLight {
 RectangleArena {
 }
 E-puck {
+  hidden position_0_0 6.875336285982467
+  hidden position_0_1 -5.0171491097709735
+  hidden linearVelocity_0 -2.1533058437132063e-06 3.786464967442258e-06 1.1288661312405172e-07
+  hidden angularVelocity_0 -0.00025256385888688504 -0.0001435552242586175 2.905292777019049e-08
+  hidden rotation_1 0 -1 0 5.6910343283767055
+  hidden linearVelocity_1 -2.867556927999539e-06 5.045250242734703e-06 2.3692900246179826e-07
+  hidden angularVelocity_1 -0.00025256354547063836 -0.00014355520515476619 2.9190084366523854e-08
+  hidden rotation_2 0 -1 0 5.0171491097709735
+  hidden linearVelocity_2 -2.8706605330983204e-06 5.050504426135871e-06 -1.963782203517887e-08
+  hidden angularVelocity_2 -0.00025256381278793475 -0.00014355523238614035 2.9037016336535e-08
+  translation 0.008297751714461623 0.006927262867103105 -6.497901601378551e-05
+  rotation 0.0007173457746412531 -0.000419083301977749 0.9999996548920532 2.104975081757456
   controller "e-puck_GoBack"
   turretSlot [
     Compass {
@@ -28,5 +41,12 @@ E-puck {
   ]
 }
 BiscuitBox {
-  translation 0.18 0 0
+  hidden linearVelocity_0 9.068172731951781e-13 2.9302158355148046e-13 -5.272582370707812e-12
+  hidden angularVelocity_0 -1.46508966726536e-11 4.5339573951322936e-11 -8.089651972528118e-17
+  translation 0.18000000022321472 3.126341703868612e-11 -0.00015695999932576615
+  rotation 2.0647711472524735e-05 -6.401510158663207e-05 0.9999999977378694 9.082130065367672e-08
+}
+PingPongBall {
+  translation -0.00196937 0.15882 0.074801
+  rotation 0.765366497316239 0.5720059981933446 0.2949970556068428 0.05995512944818249
 }
