@@ -1,206 +1,337 @@
 #!/Users/whakimi/myenv/bin/python
-
-from controller import Robot, Camera, LED, Motor, DistanceSensor, GPS, Compass
-import numpy as np
-import cv2
+from controller import Robot, Camera, Compass, GPS, LED, DistanceSensor
 import math
+import time
+from math import atan2, degrees
 import random
+import cv2
+import numpy as np
 
-class EPuckPetRobot:
-    # Constants
-    TIME_STEP = 64
-    MAX_SPEED = 6.28
-    CAMERA_WIDTH = 640
-    CAMERA_HEIGHT = 480
-    LED_ON_DURATION = 3000
-    DISTANCE_THRESHOLD = 1000
-    
-    def __init__(self):
-        # Initialize the robot
-        self.robot = Robot()
-        
-        # Initialize devices
-        self.setup_camera()
-        self.setup_motors()
-        self.setup_sensors()
-        self.setup_leds()
-        
-        # Initialize states
-        self.current_behavior = 'idle'
-        self.led_timers = {i: 0 for i in range(8)}
-        self.dance_start_time = 0
-        self.is_dancing = False
-        
-        # Initialize ArUco detector with corrected API
-        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-        self.aruco_params = cv2.aruco.DetectorParameters()
-        self.aruco_detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.aruco_params)
-        
-    def setup_camera(self):
-        """Initialize and enable the camera"""
-        self.camera = self.robot.getDevice('camera')
-        if self.camera:
-            self.camera.enable(self.TIME_STEP)
-        else:
-            print("Warning: Camera device not found!")
-            
-    def setup_motors(self):
-        """Initialize wheel motors"""
-        self.left_motor = self.robot.getDevice('left wheel motor')
-        self.right_motor = self.robot.getDevice('right wheel motor')
-        self.left_motor.setPosition(float('inf'))
-        self.right_motor.setPosition(float('inf'))
-        self.left_motor.setVelocity(0.0)
-        self.right_motor.setVelocity(0.0)
-        
-    def setup_sensors(self):
-        """Initialize GPS, compass and distance sensors"""
-        self.gps = self.robot.getDevice('gps')
-        self.compass = self.robot.getDevice('compass')
-        
-        if self.gps:
-            self.gps.enable(self.TIME_STEP)
-        if self.compass:
-            self.compass.enable(self.TIME_STEP)
-            
-        self.ps = []
-        for i in range(8):
-            sensor = self.robot.getDevice(f'ps{i}')
-            if sensor:
-                sensor.enable(self.TIME_STEP)
-                self.ps.append(sensor)
-                
-    def setup_leds(self):
-        """Initialize LEDs"""
-        self.leds = []
-        for i in range(8):
-            led = self.robot.getDevice(f'led{i}')
-            if led:
-                self.leds.append(led)
-                
-    def set_motor_speeds(self, left, right):
-        """Set motor speeds with safety limits"""
-        left = max(min(left, self.MAX_SPEED), -self.MAX_SPEED)
-        right = max(min(right, self.MAX_SPEED), -self.MAX_SPEED)
-        self.left_motor.setVelocity(left)
-        self.right_motor.setVelocity(right)
-        
-    def process_camera(self):
-        """Process camera image and detect ArUco markers"""
-        if self.camera:
-            image = self.camera.getImage()
-            if image:
-                # Convert to numpy array
-                img = np.frombuffer(image, np.uint8).reshape((self.CAMERA_HEIGHT, self.CAMERA_WIDTH, 4))
-                # Convert from RGBA to BGR
-                img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
-                
-                try:
-                    # Detect ArUco markers
-                    corners, ids, rejected = self.aruco_detector.detectMarkers(img)
-                    
-                    # If markers detected, process them
-                    if ids is not None and len(ids) > 0:
-                        return img, corners, ids
-                    return img, None, None
-                except Exception as e:
-                    print(f"Error detecting markers: {e}")
-                    return img, None, None
-        return None, None, None
-        
-    def dance_behavior(self):
-        """Execute a simple dance pattern"""
-        current_time = self.robot.getTime() * 1000
-        if not self.is_dancing:
-            self.dance_start_time = current_time
-            self.is_dancing = True
-            
-        dance_duration = current_time - self.dance_start_time
-        if dance_duration < 2000:  # Spin for 2 seconds
-            self.set_motor_speeds(2.0, -2.0)
-        elif dance_duration < 4000:  # Move forward for 2 seconds
-            self.set_motor_speeds(2.0, 2.0)
-        else:
-            self.is_dancing = False
-            self.current_behavior = 'idle'
-            
-    def follow_marker(self, marker_corners):
-        """Follow detected ArUco marker"""
-        if marker_corners and len(marker_corners) > 0:
-            # Get center of marker
-            marker = marker_corners[0][0]
-            marker_center_x = np.mean(marker[:, 0])
-            
-            # Calculate error from center of image
-            center_error = marker_center_x - (self.CAMERA_WIDTH / 2)
-            
-            # Simple proportional control
-            Kp = 0.01
-            base_speed = 2.0
-            
-            # Calculate motor speeds
-            left_speed = base_speed - (Kp * center_error)
-            right_speed = base_speed + (Kp * center_error)
-            
-            self.set_motor_speeds(left_speed, right_speed)
-        else:
-            self.set_motor_speeds(0, 0)
-            
-    def led_pattern(self):
-        """Update LED pattern based on current behavior"""
-        current_time = self.robot.getTime() * 1000
-        
-        if self.current_behavior == 'dance':
-            # Circular pattern during dance
-            led_index = int((current_time / 200) % 8)
-            for i, led in enumerate(self.leds):
-                led.set(1 if i == led_index else 0)
-        else:
-            # Default blinking pattern
-            for i, led in enumerate(self.leds):
-                led.set(1 if current_time % 1000 < 500 else 0)
-                
-    def run(self):
-        """Main control loop"""
-        print("Starting E-puck pet robot controller")
-        
-        while self.robot.step(self.TIME_STEP) != -1:
-            try:
-                # Process camera image and detect markers
-                img, marker_corners, marker_ids = self.process_camera()
-                
-                # Debug output
-                if marker_ids is not None:
-                    print(f"Detected markers: {marker_ids}")
-                
-                # Update behavior based on markers
-                if marker_ids is not None:
-                    if 1 in marker_ids:  # Marker 1 triggers dance
-                        self.current_behavior = 'dance'
-                        print("Dance behavior triggered")
-                    elif 2 in marker_ids:  # Marker 2 triggers following
-                        self.current_behavior = 'follow'
-                        print("Follow behavior triggered")
-                
-                # Execute behaviors
-                if self.current_behavior == 'dance':
-                    self.dance_behavior()
-                elif self.current_behavior == 'follow':
-                    self.follow_marker(marker_corners)
-                else:  # idle behavior
-                    self.set_motor_speeds(0, 0)
-                
-                # Update LEDs
-                self.led_pattern()
-                
-            except Exception as e:
-                print(f"Error in main loop: {e}")
-                self.set_motor_speeds(0, 0)  # Safety stop
+# Constants
+TIME_STEP = 64
+SPIN_SPEED = 2.0
+CENTER_POSITION = (0, 0)
+FEEDING_POSITION = (1.0, 1.0)  # Example position for feeding spot
+MOOD_THRESHOLD_HIGH = 55
+MOOD_THRESHOLD_LOW = 25
+MOOD_INCREASE = 5
+MOOD_DECREASE = 0.5
+LED_DURATION = 3000
 
-# Create and run the robot controller
-if __name__ == "__main__":
+# Robot modes
+MODE_IDLE = 0
+MODE_PETTING = 1
+MODE_FEEDING = 2
+
+# Feeding mode states
+FEEDING_STATE_GOTO_MARKER = 0
+FEEDING_STATE_CHARGING = 1
+FEEDING_STATE_RETURN_CENTER = 2
+FEEDING_STATE_COMPLETE = 3
+
+# Direction mapping
+direction_names = {
+    0: "FRONT", 1: "FRONT-RIGHT", 2: "RIGHT", 3: "BACK-RIGHT",
+    4: "BACK", 5: "BACK-LEFT", 6: "LEFT", 7: "FRONT-LEFT"
+}
+
+# Initialize robot and devices
+robot = Robot()
+compass = robot.getDevice("compass")
+left_motor = robot.getDevice("left wheel motor")
+right_motor = robot.getDevice("right wheel motor")
+
+# Set up camera and ArUco detection
+camera = robot.getDevice("camera")
+camera.enable(TIME_STEP)
+aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+aruco_params = cv2.aruco.DetectorParameters()
+detector = cv2.aruco.ArucoDetector(aruco_dict, aruco_params)
+
+# Enable sensors
+compass.enable(TIME_STEP)
+gps = robot.getDevice('gps')
+gps.enable(TIME_STEP)
+
+# Set motors to velocity mode
+left_motor.setPosition(float('inf'))
+right_motor.setPosition(float('inf'))
+
+# Initialize LEDs
+leds = []
+for i in range(8):
+    led = robot.getDevice(f'led{i}')
+    if led:
+        leds.append(led)
+
+# Initialize proximity sensors
+ps = []
+for i in range(8):
+    sensor = robot.getDevice(f'ps{i}')
+    if sensor:
+        sensor.enable(TIME_STEP)
+        ps.append(sensor)
+
+# State variables
+mood = 50
+current_mode = MODE_IDLE
+feeding_state = FEEDING_STATE_GOTO_MARKER
+dance_flag = False
+current_time = 0
+led_timers = {i: 0 for i in range(len(leds))}
+charging_complete = False
+led_sequence_start_time = 0
+marker_position = None
+
+def check_aruco_markers():
+    """Check camera for ArUco markers and their positions"""
     try:
-        controller = EPuckPetRobot()
-        controller.run()
+        img = camera.getImage()
+        if not img:
+            return None, None
+            
+        img_array = np.frombuffer(img, np.uint8).reshape((camera.getHeight(), camera.getWidth(), 4))
+        gray = cv2.cvtColor(img_array, cv2.COLOR_BGRA2GRAY)
+        
+        cv2.imshow('Camera View', gray)
+        cv2.waitKey(1)
+        
+        corners, ids, _ = detector.detectMarkers(gray)
+        
+        if ids is not None and len(corners) > 0:
+            # Calculate marker position relative to robot
+            marker_center = corners[0][0].mean(axis=0)
+            # Convert pixel coordinates to rough world coordinates
+            marker_x = (marker_center[0] - camera.getWidth()/2) * 0.01
+            marker_y = (camera.getHeight() - marker_center[1]) * 0.01
+            return ids.flatten()[0], (marker_x, marker_y)
+        return None, None
+                    
     except Exception as e:
-        print(f"Error initializing robot: {e}")
+        print(f"Warning: Error checking ArUco markers: {e}")
+        return None, None
+
+def check_collisions():
+    """Check for nearby objects using distance sensors"""
+    close_threshold = 1000
+    near_threshold = 100
+    collisions = []
+    has_interaction = False
+    
+    for i, sensor in enumerate(ps):
+        value = sensor.getValue()
+        if value > close_threshold:
+            print(f"Very close object detected at {direction_names[i]}")
+            collisions.append(i)
+            blink_led(i)
+            has_interaction = True
+        elif value > near_threshold:
+            print(f"Nearby object detected at {direction_names[i]}")
+            has_interaction = True
+    
+    return collisions, has_interaction
+
+def update_mood(has_interaction):
+    """Update mood based on interactions"""
+    global mood
+    if has_interaction:
+        mood = min(100, mood + MOOD_INCREASE)
+    else:
+        mood = max(0, mood - MOOD_DECREASE)
+    print(f"Current mood: {mood}")
+    return mood
+
+def get_heading_angle():
+    """Get current heading angle from compass"""
+    north = compass.getValues()
+    angle = degrees(atan2(north[1], north[0]))
+    return (angle % 360) + 1
+
+def compass_bearing(current_pos, target_pos):
+    """Calculate bearing to target position"""
+    theta_radians = math.atan2(target_pos[1] - current_pos[1],
+                              target_pos[0] - current_pos[0])
+    theta_degrees = math.degrees(theta_radians)
+    return (90 - theta_degrees + 360) % 360
+
+def calculate_distance(pos1, pos2):
+    """Calculate distance between two positions"""
+    return math.sqrt((pos2[0] - pos1[0])**2 + (pos2[1] - pos1[1])**2)
+
+def move_to_position(current_pos, target_pos):
+    """Move robot towards target position, returns True if reached"""
+    distance = calculate_distance(current_pos, target_pos)
+    if distance < 0.04:  # At destination
+        left_motor.setVelocity(0)
+        right_motor.setVelocity(0)
+        return True
+
+    bearing = compass_bearing(current_pos, target_pos)
+    current_heading = get_heading_angle()
+    heading_diff = abs(current_heading - bearing)
+    
+    if heading_diff > 180:
+        heading_diff = 360 - heading_diff
+
+    if heading_diff < 3:
+        # Move forward
+        speed = min(4.0, max(1.0, distance * 10))
+        left_motor.setVelocity(speed)
+        right_motor.setVelocity(speed)
+    else:
+        # Turn to face target
+        left_motor.setVelocity(SPIN_SPEED)
+        right_motor.setVelocity(-SPIN_SPEED)
+    
+    return False
+
+def blink_led(led_index):
+    """Blink a specific LED"""
+    if 0 <= led_index < len(leds):
+        current_time = robot.getTime() * 1000
+        leds[led_index].set(1)
+        led_timers[led_index] = current_time
+
+def update_leds():
+    """Update LED states based on timers"""
+    current_time = robot.getTime() * 1000
+    for led_index, start_time in led_timers.items():
+        if start_time > 0 and current_time - start_time > LED_DURATION:
+            leds[led_index].set(0)
+            led_timers[led_index] = 0
+
+def feeding_mode_led_sequence():
+    """LED sequence for feeding mode - gradual charging effect"""
+    global charging_complete, led_sequence_start_time
+    
+    if led_sequence_start_time == 0:
+        led_sequence_start_time = robot.getTime()
+        for led in leds:  # Start with all LEDs off
+            led.set(0)
+    
+    time_elapsed = robot.getTime() - led_sequence_start_time
+    
+    if time_elapsed > 8:  # Complete sequence after 8 seconds
+        charging_complete = True
+        return
+    
+    # Update LED every second
+    led_to_light = int(time_elapsed)
+    if led_to_light < len(leds):
+        for i in range(led_to_light + 1):
+            leds[i].set(1)
+
+def handle_feeding_mode(current_pos):
+    """Handle the feeding mode state machine"""
+    global feeding_state, current_mode, charging_complete, led_sequence_start_time, marker_position
+    
+    if feeding_state == FEEDING_STATE_GOTO_MARKER:
+        if marker_position is None:
+            # Try to find the ArUco marker
+            marker_id, marker_pos = check_aruco_markers()
+            if marker_id == 2:  # Feeding marker
+                marker_position = marker_pos
+        
+        if marker_position is not None:
+            if move_to_position(current_pos, marker_position):
+                feeding_state = FEEDING_STATE_CHARGING
+                
+    elif feeding_state == FEEDING_STATE_CHARGING:
+        # Stop moving while charging
+        left_motor.setVelocity(0)
+        right_motor.setVelocity(0)
+        
+        # Run LED charging sequence
+        feeding_mode_led_sequence()
+        
+        if charging_complete:
+            feeding_state = FEEDING_STATE_RETURN_CENTER
+            
+    elif feeding_state == FEEDING_STATE_RETURN_CENTER:
+        if move_to_position(current_pos, CENTER_POSITION):
+            feeding_state = FEEDING_STATE_COMPLETE
+            
+    elif feeding_state == FEEDING_STATE_COMPLETE:
+        # Reset states and switch to idle mode
+        current_mode = MODE_IDLE
+        feeding_state = FEEDING_STATE_GOTO_MARKER
+        charging_complete = False
+        marker_position = None
+        led_sequence_start_time = 0
+        # Turn off all LEDs
+        for led in leds:
+            led.set(0)
+
+def circular_movement():
+    """Make the robot move in a circular pattern"""
+    CIRCLE_SPEED = 2.0
+    TURNING_RATIO = 0.7
+    left_motor.setVelocity(CIRCLE_SPEED)
+    right_motor.setVelocity(CIRCLE_SPEED * TURNING_RATIO)
+
+def mood_check():
+    """Check and update LED patterns based on mood"""
+    if mood > MOOD_THRESHOLD_HIGH:
+        for led in leds:
+            if led.get() == 1:
+                blinks_led(led, True)
+            else:
+                blinks_led(led, False)
+    else:
+        for led in leds:
+            blinks_led(led, True)
+
+def blinks_led(led, isON):
+    """Control LED state"""
+    if led is not None:
+        if isON:
+            led.set(0)
+        else:
+            led.set(1)
+
+# Main loop
+print("Robot starting...")
+while robot.step(TIME_STEP) != -1:
+    # Get current position
+    gps_values = gps.getValues()
+    current_pos = (gps_values[0], gps_values[1])
+    
+    # Check for mode changes via ArUco markers
+    marker_id, marker_pos = check_aruco_markers()
+    if marker_id is not None:
+        if marker_id == 1:
+            if current_mode != MODE_PETTING:
+                current_mode = MODE_PETTING
+                print("Switching to petting mode")
+        elif marker_id == 2:
+            if current_mode != MODE_FEEDING:
+                current_mode = MODE_FEEDING
+                feeding_state = FEEDING_STATE_GOTO_MARKER
+                marker_position = marker_pos
+                print("Switching to feeding mode")
+        elif marker_id == 3:
+            if current_mode != MODE_IDLE:
+                current_mode = MODE_IDLE
+                print("Switching to idle mode")
+    
+    # Basic behaviors that always run
+    collisions, has_interaction = check_collisions()
+    update_leds()
+    current_mood = update_mood(has_interaction)
+    
+    # Handle different modes
+    if current_mode == MODE_PETTING:
+        if has_interaction:
+            left_motor.setVelocity(0)
+            right_motor.setVelocity(0)
+        else:
+            left_motor.setVelocity(SPIN_SPEED)
+            right_motor.setVelocity(-SPIN_SPEED)
+        mood_check()
+            
+    elif current_mode == MODE_FEEDING:
+        handle_feeding_mode(current_pos)
+            
+    else:  # MODE_IDLE
+        circular_movement()
+        mood_check()

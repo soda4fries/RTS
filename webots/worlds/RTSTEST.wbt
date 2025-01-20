@@ -4,44 +4,58 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/gctronic/e-puck/protos/E-puck.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/kitchen/breakfast/protos/BiscuitBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/toys/protos/RubberDuck.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/drinks/protos/Can.proto"
 
 WorldInfo {
-  info [
-    "E-puck pet robot simulation"
-    "With Aruco markers for interaction"
-  ]
-  title "E-puck Pet Robot"
+  basicTimeStep 64
 }
 Viewpoint {
-  orientation -0.1442022330305321 -0.6893920416109197 0.7098903640369658 5.710112258094252
-  position -1.2099423146226918 0.8622551031802211 0.49985710772328074
+  orientation 0.2875776818773267 -0.30982364870659124 -0.9062606598480362 4.688463356584909
+  position -0.210653927660726 -0.8535674226823343 0.7808492364299745
 }
 TexturedBackground {
 }
 TexturedBackgroundLight {
 }
 RectangleArena {
-  floorSize 2 2
-  floorTileSize 0.25 0.25
+  wallHeight 0.15
 }
 E-puck {
-  hidden position_0_0 4.5586097126492175
-  hidden position_0_1 4.558609712649211
-  hidden rotation_1 0 1 0 4.5586097126492175
-  hidden rotation_2 0 1 0 4.558609712649211
-  translation 9.677170057386233e-11 -1.7880738414910532e-11 -6.391454893217748e-05
-  rotation -0.9488857611543017 0.3156197273275576 -5.476748298685563e-07 1.2331017770965142e-07
+  hidden position_0_0 735.5307881117707
+  hidden position_0_1 152.09747426717266
+  hidden linearVelocity_0 -4.5978084638881253e-07 5.96694327968851e-09 2.7964870488806815e-05
+  hidden angularVelocity_0 -1.2172751583762992e-10 2.0923333785927926e-09 -1.4111518162463892
+  hidden rotation_1 0 -1 0 5.885078135420528
+  hidden linearVelocity_1 0.0038676843635030945 0.03645666482700451 -2.7700108674653134e-05
+  hidden angularVelocity_1 -1.9889026359230757 0.21139194756709948 -1.4211923226636638
+  hidden rotation_2 0 1 0 1.3010268948625816
+  hidden linearVelocity_2 -0.0038686039045452455 -0.03645665290643886 -2.770021351165103e-05
+  hidden angularVelocity_2 1.9889026356736028 -0.21139194324166877 -1.4211923268115962
+  translation 0.038379196718450505 -0.0011883968924653347 -0.00014709979145118013
+  rotation 6.532185103505855e-10 5.586361541977313e-10 1 1.3849097814811162
   controller "epuck_pet_controller"
   turretSlot [
-    GPS {
-    }
     Compass {
+    }
+    GPS {
     }
   ]
 }
+BiscuitBox {
+  hidden linearVelocity_0 4.0559954484219674e-17 2.7355720746494037e-18 7.105497534621399e-17
+  hidden angularVelocity_0 6.98947696167603e-21 3.3321831409391845e-15 1.3374807982804918e-16
+  translation 0.18000300000000025 0.21000000006023706 -0.0003139199999999988
+  rotation 1.0069341367676927e-10 4.1638286246271666e-11 1 1.2839339722073199e-06
+  name "food_box"
+}
+Can {
+  translation 0.1 0.45 0.06
+}
 Pose {
-  translation 0.5 0.5 0.05
-  rotation 1 0 0 -1.5708
+  translation 0.48 0 0.05
+  rotation 0 1 0 -1.5708
   children [
     Shape {
       appearance PBRAppearance {
@@ -60,8 +74,8 @@ Pose {
   ]
 }
 Pose {
-  translation -0.5 0.5 0.05
-  rotation 1 0 0 -1.5708
+  translation 0 0.47 0.06
+  rotation 1 0 0 1.57079
   children [
     Shape {
       appearance PBRAppearance {
@@ -80,8 +94,8 @@ Pose {
   ]
 }
 Pose {
-  translation -0.5 -0.5 0.05
-  rotation 1 0 0 -1.5708
+  translation -1.50495e-07 -0.41 0.0500001
+  rotation 3.3905113482557537e-09 0.70710528118436 0.707108281185553 3.14159
   children [
     Shape {
       appearance PBRAppearance {
@@ -99,23 +113,7 @@ Pose {
     }
   ]
 }
-Pose {
-  translation 0.5 -0.5 0.05
-  rotation 1 0 0 -1.5708
-  children [
-    Shape {
-      appearance PBRAppearance {
-        baseColorMap ImageTexture {
-          url [
-            "markers/marker4.png"
-          ]
-        }
-        roughness 1
-        metalness 0
-      }
-      geometry Plane {
-        size 0.1 0.1
-      }
-    }
-  ]
+RubberDuck {
+  translation -0.2 -0.2 0.020376742103873594
+  rotation -7.880984814400268e-16 -1.7585098429909004e-16 1 0.49999999999999967
 }
