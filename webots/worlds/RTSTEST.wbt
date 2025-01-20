@@ -4,13 +4,13 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/gctronic/e-puck/protos/E-puck.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/toys/protos/RubberDuck.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/kitchen/breakfast/protos/BiscuitBox.proto"
 
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.5773502691896257 0.5773502691896257 0.5773502691896257 2.0944
-  position -2.577019458065595e-05 -2.577026744923141e-05 0.8862938116870198
+  orientation -0.3550209315138744 0.4684433068420076 0.8090247254948058 1.5055381409473554
+  position -0.10925998974019618 -0.5169360880718571 0.7449638213095242
 }
 TexturedBackground {
 }
@@ -27,6 +27,6 @@ E-puck {
     }
   ]
 }
-RubberDuck {
-  translation 0.17 0 0.02
+BiscuitBox {
+  translation 0.18 0 0
 }
