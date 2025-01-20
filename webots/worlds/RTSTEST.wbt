@@ -4,29 +4,118 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/gctronic/e-puck/protos/E-puck.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/toys/protos/RubberDuck.proto"
 
 WorldInfo {
+  info [
+    "E-puck pet robot simulation"
+    "With Aruco markers for interaction"
+  ]
+  title "E-puck Pet Robot"
 }
 Viewpoint {
-  orientation -0.5773502691896257 0.5773502691896257 0.5773502691896257 2.0944
-  position -2.577019458065595e-05 -2.577026744923141e-05 0.8862938116870198
+  orientation -0.1442022330305321 -0.6893920416109197 0.7098903640369658 5.710112258094252
+  position -1.2099423146226918 0.8622551031802211 0.49985710772328074
 }
 TexturedBackground {
 }
 TexturedBackgroundLight {
 }
 RectangleArena {
+  floorSize 2 2
+  floorTileSize 0.25 0.25
 }
 E-puck {
-  controller "e-puck_GoBack"
+  hidden position_0_0 4.5586097126492175
+  hidden position_0_1 4.558609712649211
+  hidden rotation_1 0 1 0 4.5586097126492175
+  hidden rotation_2 0 1 0 4.558609712649211
+  translation 9.677170057386233e-11 -1.7880738414910532e-11 -6.391454893217748e-05
+  rotation -0.9488857611543017 0.3156197273275576 -5.476748298685563e-07 1.2331017770965142e-07
+  controller "epuck_pet_controller"
   turretSlot [
-    Compass {
-    }
     GPS {
+    }
+    Compass {
     }
   ]
 }
-RubberDuck {
-  translation 0.17 0 0.02
+Pose {
+  translation 0.5 0.5 0.05
+  rotation 1 0 0 -1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "markers/marker1.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Plane {
+        size 0.1 0.1
+      }
+    }
+  ]
+}
+Pose {
+  translation -0.5 0.5 0.05
+  rotation 1 0 0 -1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "markers/marker2.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Plane {
+        size 0.1 0.1
+      }
+    }
+  ]
+}
+Pose {
+  translation -0.5 -0.5 0.05
+  rotation 1 0 0 -1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "markers/marker3.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Plane {
+        size 0.1 0.1
+      }
+    }
+  ]
+}
+Pose {
+  translation 0.5 -0.5 0.05
+  rotation 1 0 0 -1.5708
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "markers/marker4.png"
+          ]
+        }
+        roughness 1
+        metalness 0
+      }
+      geometry Plane {
+        size 0.1 0.1
+      }
+    }
+  ]
 }
