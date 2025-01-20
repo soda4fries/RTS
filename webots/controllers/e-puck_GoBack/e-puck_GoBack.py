@@ -1,5 +1,6 @@
-from controller import Robot, Compass, GPS
+from controller import Robot, Compass, GPS, LED, DistanceSensor
 import math
+import time
 from math import atan2, degrees
 import random
 
@@ -25,6 +26,71 @@ gps.enable(TIME_STEP)
 # Set motors to velocity mode
 left_motor.setPosition(float('inf'))
 right_motor.setPosition(float('inf'))
+        
+# Initialize LEDs
+leds = []
+for i in range(8):
+    led = robot.getDevice(f'led{i}')
+    if led:
+        leds.append(led)
+        
+# Initialize proximity sensors
+ps = []
+for i in range(8):
+    sensor = robot.getDevice(f'ps{i}')
+    if sensor:
+        sensor.enable(TIME_STEP)
+        ps.append(sensor)
+        
+# LED timer dictionary
+led_timers = {i: 0 for i in range(len(leds))}
+LED_DURATION = 3000  # 3 seconds in milliseconds
+
+# Direction mapping for better debug messages
+direction_names = {
+0: "FRONT",
+1: "FRONT-RIGHT",
+2: "RIGHT",
+3: "BACK-RIGHT",
+4: "BACK",
+5: "BACK-LEFT",
+6: "LEFT",
+7: "FRONT-LEFT"
+}
+        
+def check_collisions():
+    """Check for very close objects using distance sensors"""
+    threshold = 1000  # Very high value indicates very close object
+    collisions = []
+        
+    for i, sensor in enumerate(ps):
+        value = sensor.getValue()
+            # Print sensor values for debugging
+            #print(f"Sensor {i} ({self.direction_names[i]}): {value}")
+             
+        if value > threshold:
+            print(f"Very close object detected at {direction_names[i]}")
+            collisions.append(i)
+            blink_led(i)
+        
+    return collisions
+  
+def blink_led(led_index):
+    """Blink a specific LED"""
+    if 0 <= led_index and led_index < len(leds):
+        current_time = robot.getTime() * 1000
+        leds[led_index].set(1)
+        led_timers[led_index] = current_time
+        print(f"LED {led_index} turned ON ({direction_names[led_index]} position)")
+
+def update_leds():
+    """Turn off LEDs after duration"""
+    current_time = robot.getTime() * 1000
+    for led_index, start_time in led_timers.items():
+        if start_time > 0 and current_time - start_time > LED_DURATION:
+            leds[led_index].set(0)
+            led_timers[led_index] = 0
+            print(f"LED {led_index} turned OFF ({direction_names[led_index]} position)")
 
 def get_heading_angle():
     north = compass.getValues()  
@@ -130,6 +196,7 @@ def dance(current_time):
         return False 
     return True
  
+
     
 # Set to True to start dancing -> skips the moving part until the dance finishes
 dance_flag = False
@@ -137,6 +204,9 @@ current_time = 0
 
 # Main loop
 while robot.step(TIME_STEP) != -1:
+    check_collisions()
+    update_leds()
+    
     left_motor.setVelocity(0)
     right_motor.setVelocity(0)
     
@@ -145,7 +215,7 @@ while robot.step(TIME_STEP) != -1:
     bearing = compass_bearing(current_coordinate, destination)
     
     current_heading = get_heading_angle()
-    print(f"Angle heading: {current_heading}")
+    #print(f"Angle heading: {current_heading}")
     
     if not dance_flag:
     
@@ -161,25 +231,15 @@ while robot.step(TIME_STEP) != -1:
         else:
             print(f"bearing: {bearing}")
             if (current_heading > bearing - 3 and current_heading < bearing + 3):
-                print("is in the right direction")
+                #print("is in the right direction")
                 left_motor.setVelocity(4.0)
                 right_motor.setVelocity(4.0)
             else:
-                print("not in the right direction")
+                #print("not in the right direction")
                 left_motor.setVelocity(SPIN_SPEED)
                 right_motor.setVelocity(-SPIN_SPEED)    
     else:
         # keeps dancing until the 16 second dance finishes
         dance_flag = dance(current_time)
         
-        
-    
-    
-    # Get current compass heading
-    
-    # Print the compass value
-   
-    # Spin the robot in place
-    
-    #left_motor.setVelocity(FORWARD_SPEED)
-    #right_motor.setVelocity(FORWARD_SPEED)
+ 
