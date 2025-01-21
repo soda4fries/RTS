@@ -1,4 +1,4 @@
-#!/Users/whakimi/myenv/bin/python
+#!/usr/bin/env python
 # petting_mode.py
 from base_mode import BaseMode
 import math
@@ -10,19 +10,20 @@ class PettingMode(BaseMode):
         super().__init__(robot)
         # Constants
         self.SPIN_SPEED = 2.0
-        self.destination = (0, 0)
+        self.destination = (0, 0)  # Default destination at origin
         self.MOOD_THRESHOLD_HIGH = 55
         self.MOOD_THRESHOLD_LOW = 25
         self.MOOD_INCREASE = 5
         self.MOOD_DECREASE = 0.5
-        self.LED_DURATION = 3000
+        self.LED_DURATION = 3000  # LED blink duration in milliseconds
 
         # State variables
-        self.mood = 50
+        self.mood = 50  # Initial mood value
         self.dance_flag = False
         self.dance_state_persistent = False
         self.current_time = 0
         self.dance_interrupted_time = 0
+        self.has_meowed = False  # Track if meow has played
 
         # Direction mapping for debug messages
         self.direction_names = {
@@ -37,7 +38,11 @@ class PettingMode(BaseMode):
         }
 
     def initialize_devices(self):
+        """Initialize all robot devices and sensors"""
         super().initialize_devices()
+        
+        # Initialize sound device
+        self.speaker = self.robot.getDevice('speaker')
         
         # Initialize compass
         self.compass = self.robot.getDevice("compass")
@@ -62,7 +67,7 @@ class PettingMode(BaseMode):
                 sensor.enable(self.TIME_STEP)
                 self.ps.append(sensor)
         
-        # LED timer dictionary
+        # LED timer dictionary to track blink durations
         self.led_timers = {i: 0 for i in range(len(self.leds))}
 
     def check_collisions(self):
@@ -87,15 +92,34 @@ class PettingMode(BaseMode):
 
     def update_mood(self, has_interaction):
         """Update mood based on interactions"""
+        old_mood = self.mood
+        
         if has_interaction:
             self.mood = min(100, self.mood + self.MOOD_INCREASE)
         else:
             self.mood = max(0, self.mood - self.MOOD_DECREASE)
         
+        # Play meow sound when mood reaches 100
+        if self.mood == 100 and old_mood < 100 and not self.has_meowed:
+            try:
+                # Simplified sound playback that won't crash the simulation
+                self.speaker.playSound(self.speaker, self.speaker, 'sounds/meow.wav', 1.0, 1.0, 0.0, False)
+                self.has_meowed = True
+                print("Playing meow sound!")
+            except Exception as e:
+                print(f"Error playing sound: {e}")
+                # Don't let sound errors affect the simulation
+                pass
+        
+        # Reset meow flag if mood drops below 100
+        if self.mood < 100:
+            self.has_meowed = False
+        
         print(f"Current mood: {self.mood}")
         return self.mood
 
     def mood_check(self):
+        """Update LED states based on mood"""
         if self.mood > self.MOOD_THRESHOLD_HIGH:
             for led in self.leds:
                 if led.get() == 1:
@@ -107,7 +131,7 @@ class PettingMode(BaseMode):
                 self.blinks_led(led, True)
 
     def blinks_led(self, led, isON):
-        """Blink a specific LED"""
+        """Set LED state"""
         if led is not None:
             if isON:
                 led.set(0)
@@ -115,7 +139,7 @@ class PettingMode(BaseMode):
                 led.set(1)
 
     def blink_led(self, led_index):
-        """Blink a specific LED"""
+        """Start LED blink sequence"""
         if 0 <= led_index < len(self.leds):
             current_time = self.robot.getTime() * 1000
             self.leds[led_index].set(1)
@@ -123,7 +147,7 @@ class PettingMode(BaseMode):
             print(f"LED {led_index} turned ON ({self.direction_names[led_index]} position)")
 
     def update_leds(self):
-        """Turn off LEDs after duration"""
+        """Update LED states based on timers"""
         current_time = self.robot.getTime() * 1000
         for led_index, start_time in self.led_timers.items():
             if start_time > 0 and current_time - start_time > self.LED_DURATION:
@@ -132,11 +156,13 @@ class PettingMode(BaseMode):
                 print(f"LED {led_index} turned OFF ({self.direction_names[led_index]} position)")
 
     def get_heading_angle(self):
+        """Calculate current heading angle from compass"""
         north = self.compass.getValues()
         angle = degrees(atan2(north[1], north[0]))
         return (angle % 360) + 1
 
     def compass_bearing(self, current_coordinate, destination_coordinate):
+        """Calculate bearing to destination"""
         theta_radians = math.atan2(destination_coordinate[1] - current_coordinate[1],
                                  destination_coordinate[0] - current_coordinate[0])
         theta_degrees = math.degrees(theta_radians)
@@ -144,17 +170,17 @@ class PettingMode(BaseMode):
         return compass_bearing
 
     def is_at_destination(self, current_coordinate):
-        """Check if robot is at the destination"""
+        """Check if robot is at the destination within tolerance"""
         return (current_coordinate[0] > -0.04 and current_coordinate[0] < 0.04 and
                 current_coordinate[1] > -0.04 and current_coordinate[1] < 0.04)
 
     def calculate_distance(self, current_coordinate, destination):
-        """Calculate distance to destination"""
+        """Calculate Euclidean distance to destination"""
         return math.sqrt((destination[0] - current_coordinate[0])**2 +
                         (destination[1] - current_coordinate[1])**2)
 
     def get_speed_for_distance(self, distance):
-        """Calculate appropriate speed based on distance to destination"""
+        """Calculate appropriate movement speed based on distance"""
         if distance < 0.1:
             return 1.0
         elif distance < 0.2:
@@ -165,7 +191,7 @@ class PettingMode(BaseMode):
             return 4.0
 
     def dance(self, current_time):
-        """Execute dance sequence"""
+        """Execute dance sequence with timing"""
         SPIN_SPEED = 3
         dance_duration = 10
         current_duration = self.robot.getTime() - current_time
@@ -281,6 +307,7 @@ class PettingMode(BaseMode):
         """Called when switching to petting mode"""
         print("Entering petting mode!")
         self.mood = 50  # Reset mood
+        self.has_meowed = False  # Reset meow flag
         
     def exit(self):
         """Called when switching away from petting mode"""
