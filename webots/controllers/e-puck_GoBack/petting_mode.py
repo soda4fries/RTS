@@ -1,3 +1,4 @@
+#!/Users/whakimi/myenv/bin/python
 # petting_mode.py
 from base_mode import BaseMode
 import math

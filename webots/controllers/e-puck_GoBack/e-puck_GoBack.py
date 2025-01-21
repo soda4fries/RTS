@@ -1,3 +1,4 @@
+#!/Users/whakimi/myenv/bin/python
 # main_controller.py
 from controller import Robot
 from petting_mode import PettingMode
